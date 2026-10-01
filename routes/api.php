@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomMemberController;
+use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\StudentClassroomController;
 use App\Http\Controllers\Api\StudentSubmissionController;
@@ -36,6 +37,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/classrooms/{classroom}/posts', [PostController::class, 'index']);
     Route::post('/classrooms/{classroom}/posts', [PostController::class, 'store']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
+
+    // Komentar Diskusi Postingan
+    Route::get('/posts/{post}/comments', [CommentController::class, 'index']);
+    Route::post('/posts/{post}/comments', [CommentController::class, 'store']);
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy']);
 
     // Tugas, Soal, dan Penilaian (Assignments & Grading)
     Route::get('/classrooms/{classroom}/assignments', [AssignmentController::class, 'index']);

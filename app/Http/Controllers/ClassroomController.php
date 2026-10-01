@@ -17,71 +17,82 @@ class ClassroomController extends Controller
     public function index()
     {
         $classrooms = Auth::user()->teachingClassrooms()->latest()->get();
-        return view('classrooms.index',compact('classrooms'));
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $classrooms,
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        return view('classrooms.create');
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreClassroomRequest $request)
     {
         $code = Str::lower(Str::random(6));
-        Auth::user()->teachingClassrooms()->create([
+
+        $classroom = Auth::user()->teachingClassrooms()->create([
             'title' => $request->title,
             'subject' => $request->subject,
             'code' => $code,
         ]);
-        return redirect()->route('classrooms.index')->with('success', 'Kelas berhasil dibuat!');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kelas berhasil dibuat!',
+            'data' => $classroom,
+        ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Classroom $classroom)
     {
-        // Otorisasi: Pastikan hanya guru pemilik kelas (atau admin) yang bisa membuka
         if (!Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
-            abort(403, 'Kamu bukan pengajar di kelas ini.');
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kamu bukan pengajar di kelas ini.',
+            ], 403);
         }
-        return view('classrooms.show', compact('classroom'));
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $classroom->load('teacher:id,name,email'),
+        ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function update(Request $request, Classroom $classroom)
     {
-        //
+        if (!Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kamu tidak berhak mengedit kelas ini.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'subject' => 'nullable|string|max:255',
+        ]);
+
+        $classroom->update($validated);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kelas berhasil diperbarui!',
+            'data' => $classroom,
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Classroom $classroom)
     {
         if (!Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
-            abort(403, 'Kamu tidak berhak menghapus kelas ini.');
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kamu tidak berhak menghapus kelas ini.',
+            ], 403);
         }
 
         $classroom->delete();
 
-        return redirect()->route('classrooms.index')->with('success', 'Kelas berhasil dihapus!');
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kelas berhasil dihapus!',
+        ]);
     }
-
 }

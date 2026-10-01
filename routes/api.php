@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomMemberController;
 use App\Http\Controllers\Api\PostController;
@@ -33,4 +34,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/classrooms/{classroom}/posts', [PostController::class, 'index']);
     Route::post('/classrooms/{classroom}/posts', [PostController::class, 'store']);
     Route::delete('/posts/{post}', [PostController::class, 'destroy']);
+
+    // Tugas, Soal, dan Penilaian (Assignments & Grading)
+    Route::get('/classrooms/{classroom}/assignments', [AssignmentController::class, 'index']);
+    Route::post('/classrooms/{classroom}/assignments', [AssignmentController::class, 'store']);
+    Route::get('/assignments/{assignment}', [AssignmentController::class, 'show']);
+    Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy']);
+    Route::get('/assignments/{assignment}/submissions', [AssignmentController::class, 'submissions']);
+    Route::post('/submissions/{submission}/grade', [AssignmentController::class, 'grade']);
 });

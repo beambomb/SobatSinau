@@ -65,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Area Khusus Administrator
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
         Route::get('/users/{user}', [UserController::class, 'show']);
     });
 });

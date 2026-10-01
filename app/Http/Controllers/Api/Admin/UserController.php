@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreUserRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -55,5 +57,31 @@ class UserController extends Controller
                 'created_at' => $user->created_at,
             ],
         ]);
+    }
+
+    /**
+     * Menambahkan pengguna baru dan menetapkan role oleh Admin.
+     */
+    public function store(StoreUserRequest $request): JsonResponse
+    {
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+        $user->assignRole($request->role);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Pengguna {$user->name} dengan role {$request->role} berhasil dibuat!",
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'roles' => $user->getRoleNames(),
+                'created_at' => $user->created_at,
+            ],
+        ], 201);
     }
 }

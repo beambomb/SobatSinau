@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ClassroomMemberController;
+use App\Http\Controllers\ClassroomController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
 
 // 1. Public Auth Route
 Route::post('/login', [AuthController::class, 'login']);
@@ -19,6 +21,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // CRUD Kelas untuk Guru & Admin
     Route::middleware('role:guru|admin')->group(function () {
-        Route::apiResource('classrooms', \App\Http\Controllers\ClassroomController::class);
+        Route::apiResource('classrooms', ClassroomController::class);
+
+        // Manajemen Anggota Kelas (Lihat & Kick Siswa)
+        Route::get('/classrooms/{classroom}/students', [ClassroomMemberController::class, 'index']);
+        Route::delete('/classrooms/{classroom}/students/{student}', [ClassroomMemberController::class, 'destroy']);
     });
 });

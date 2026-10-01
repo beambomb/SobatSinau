@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Classroom;
 use App\Http\Requests\StoreClassroomRequest;
+use App\Models\Classroom;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
-
 
 class ClassroomController extends Controller
 {
@@ -43,7 +42,7 @@ class ClassroomController extends Controller
 
     public function show(Classroom $classroom)
     {
-        if (!Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
+        if (! Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Kamu bukan pengajar di kelas ini.',
@@ -58,7 +57,7 @@ class ClassroomController extends Controller
 
     public function update(Request $request, Classroom $classroom)
     {
-        if (!Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
+        if (! Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Kamu tidak berhak mengedit kelas ini.',
@@ -81,7 +80,7 @@ class ClassroomController extends Controller
 
     public function destroy(Classroom $classroom)
     {
-        if (!Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
+        if (! Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Kamu tidak berhak menghapus kelas ini.',

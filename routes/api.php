@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomMemberController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\StudentClassroomController;
+use App\Http\Controllers\Api\StudentSubmissionController;
 use App\Http\Controllers\ClassroomController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -48,4 +49,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-classrooms', [StudentClassroomController::class, 'index']);
     Route::post('/classrooms/join', [StudentClassroomController::class, 'join']);
     Route::post('/classrooms/{classroom}/leave', [StudentClassroomController::class, 'leave']);
+
+    // Fitur Pengumpulan Tugas Murid
+    Route::get('/assignments/{assignment}/my-submission', [StudentSubmissionController::class, 'mySubmission']);
+    Route::post('/assignments/{assignment}/submit', [StudentSubmissionController::class, 'submit']);
+    Route::post('/assignments/{assignment}/unsubmit', [StudentSubmissionController::class, 'unsubmit']);
 });

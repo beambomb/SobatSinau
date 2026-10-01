@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
@@ -64,10 +65,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Area Khusus Administrator
     Route::middleware('role:admin')->prefix('admin')->group(function () {
+        // Manajemen Pengguna
         Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
         Route::get('/users/{user}', [UserController::class, 'show']);
         Route::put('/users/{user}', [UserController::class, 'update']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
+
+        // Statistik Dashboard & Pengawasan Kelas Global
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/classrooms', [DashboardController::class, 'classrooms']);
+        Route::delete('/classrooms/{classroom}', [DashboardController::class, 'destroyClassroom']);
     });
 });

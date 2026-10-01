@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomMemberController;
@@ -60,4 +61,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/assignments/{assignment}/my-submission', [StudentSubmissionController::class, 'mySubmission']);
     Route::post('/assignments/{assignment}/submit', [StudentSubmissionController::class, 'submit']);
     Route::post('/assignments/{assignment}/unsubmit', [StudentSubmissionController::class, 'unsubmit']);
+
+    // Area Khusus Administrator
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/{user}', [UserController::class, 'show']);
+    });
 });

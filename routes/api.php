@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomMemberController;
+use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\ClassroomController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -27,4 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/classrooms/{classroom}/students', [ClassroomMemberController::class, 'index']);
         Route::delete('/classrooms/{classroom}/students/{student}', [ClassroomMemberController::class, 'destroy']);
     });
+
+    // Forum Stream, Materi, dan Pengumuman
+    Route::get('/classrooms/{classroom}/posts', [PostController::class, 'index']);
+    Route::post('/classrooms/{classroom}/posts', [PostController::class, 'store']);
+    Route::delete('/posts/{post}', [PostController::class, 'destroy']);
 });

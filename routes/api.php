@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AssignmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomMemberController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\StudentClassroomController;
 use App\Http\Controllers\ClassroomController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -42,4 +43,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/assignments/{assignment}', [AssignmentController::class, 'destroy']);
     Route::get('/assignments/{assignment}/submissions', [AssignmentController::class, 'submissions']);
     Route::post('/submissions/{submission}/grade', [AssignmentController::class, 'grade']);
+
+    // Fitur Kelas Khusus Murid (Siswa)
+    Route::get('/my-classrooms', [StudentClassroomController::class, 'index']);
+    Route::post('/classrooms/join', [StudentClassroomController::class, 'join']);
+    Route::post('/classrooms/{classroom}/leave', [StudentClassroomController::class, 'leave']);
 });

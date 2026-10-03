@@ -20,6 +20,8 @@ const state = {
     tab: 'stream',
     comments: {},
     modal: null,
+    modalAssignment: null,
+    modalData: null,
     loading: false,
     toast: null,
 };
@@ -101,7 +103,19 @@ function classGrid(classrooms, full = false) {
 }
 
 function usersPlaceholder() { return `<section class="empty-state card"><div class="empty-icon">♙</div><h3>Manajemen pengguna segera hadir</h3><p>Area admin sudah disiapkan pada navigasi dan API. Modul tabel pengguna akan ditambahkan di commit berikutnya.</p></section>`; }
-function modalView() { return state.modal === 'join' ? `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Gabung kelas</p><h2>Masukkan kode kelas</h2><p class="muted">Minta kode 7 karakter dari guru kamu.</p><form id="join-form" class="stack-form"><label>Kode kelas<input name="code" minlength="7" maxlength="7" placeholder="contoh: pintari" required autocomplete="off"></label><button class="button button-primary button-block">Gabung sekarang</button></form></div></div>` : `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Kelas baru</p><h2>Buat ruang kelas</h2><p class="muted">Buat ruang yang nyaman untuk materi dan diskusi.</p><form id="create-class-form" class="stack-form"><label>Nama kelas<input name="title" placeholder="Contoh: Pemrograman Web" required maxlength="255"></label><label>Mata pelajaran<input name="subject" placeholder="Contoh: Teknologi Informasi" maxlength="255"></label><button class="button button-primary button-block">Buat kelas</button></form></div></div>`; }
+function modalView() {
+    if (state.modal === 'join') return `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Gabung kelas</p><h2>Masukkan kode kelas</h2><p class="muted">Minta kode 7 karakter dari guru kamu.</p><form id="join-form" class="stack-form"><label>Kode kelas<input name="code" minlength="7" maxlength="7" placeholder="contoh: pintari" required autocomplete="off"></label><button class="button button-primary button-block">Gabung sekarang</button></form></div></div>`;
+    if (state.modal === 'create-class') return `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Kelas baru</p><h2>Buat ruang kelas</h2><p class="muted">Buat ruang yang nyaman untuk materi dan diskusi.</p><form id="create-class-form" class="stack-form"><label>Nama kelas<input name="title" placeholder="Contoh: Pemrograman Web" required maxlength="255"></label><label>Mata pelajaran<input name="subject" placeholder="Contoh: Teknologi Informasi" maxlength="255"></label><button class="button button-primary button-block">Buat kelas</button></form></div></div>`;
+    if (state.modal === 'submit-assignment') {
+        const assignment = state.modalAssignment; const submission = state.modalData;
+        return `<div class="modal-backdrop" data-close-modal><div class="modal-card modal-wide" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Pengumpulan tugas</p><h2>${escapeHtml(assignment.title)}</h2><p class="muted">Nilai maksimal ${assignment.max_points} · Deadline ${formatDate(assignment.due_date)}</p>${submission?.status === 'graded' ? `<div class="grade-result"><span>Nilai kamu</span><strong>${submission.grade}/${assignment.max_points}</strong><p>${escapeHtml(submission.feedback || 'Belum ada catatan dari guru.')}</p></div>` : `<form id="submit-work-form" class="stack-form"><label>File jawaban${submission?.file_name ? `<small class="current-file">File saat ini: ${escapeHtml(submission.file_name)}</small>` : ''}<input name="file" type="file" ${submission ? '' : 'required'}></label><label>Catatan untuk guru<textarea name="notes" rows="3" placeholder="Tambahkan catatan jika perlu">${escapeHtml(submission?.notes || '')}</textarea></label><button class="button button-primary button-block">${submission ? 'Perbarui & kirim' : 'Kirim tugas'}</button></form>${submission ? '<button class="button button-danger button-block unsubmit-button" data-unsubmit>Tarik pengumpulan</button>' : ''}`}</div></div>`;
+    }
+    if (state.modal === 'submissions') {
+        const assignment = state.modalAssignment; const submissions = state.modalData || [];
+        return `<div class="modal-backdrop" data-close-modal><div class="modal-card modal-wide" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Review tugas</p><h2>${escapeHtml(assignment.title)}</h2><p class="muted">${submissions.length} pengumpulan masuk · Maksimal ${assignment.max_points} poin</p><div class="submission-list">${submissions.length ? submissions.map((item) => `<div class="submission-row"><div class="avatar avatar-soft">${escapeHtml(initials(item.student?.name))}</div><div class="submission-student"><strong>${escapeHtml(item.student?.name || 'Siswa')}</strong><small>${escapeHtml(item.file_name || 'Tanpa file')} · ${formatDate(item.submitted_at)}</small></div>${item.status === 'graded' ? `<div class="graded-score">${item.grade}/${assignment.max_points}</div>` : `<form class="grade-form" data-grade-submission="${item.id}"><input name="grade" type="number" min="0" max="${assignment.max_points}" placeholder="Nilai" required><input name="feedback" placeholder="Feedback singkat"><button class="button button-primary">Simpan</button></form>`}</div>`).join('') : '<p class="muted">Belum ada siswa yang mengumpulkan tugas.</p>'}</div></div></div>`;
+    }
+    return '';
+}
 
 function bindShellEvents() {
     root.querySelectorAll('[data-nav]').forEach((button) => button.addEventListener('click', () => openPage(button.dataset.nav)));
@@ -115,6 +129,12 @@ function bindShellEvents() {
     root.querySelector('#create-post-form')?.addEventListener('submit', createPost);
     root.querySelector('#create-assignment-form')?.addEventListener('submit', createAssignment);
     root.querySelectorAll('[data-comment-form]').forEach((form) => form.addEventListener('submit', createComment));
+    root.querySelectorAll('[data-submissions]').forEach((button) => button.addEventListener('click', () => openSubmissionsModal(Number(button.dataset.submissions))));
+    root.querySelectorAll('[data-submit-assignment]').forEach((button) => button.addEventListener('click', () => openSubmissionModal(Number(button.dataset.submitAssignment))));
+    root.querySelector('[data-unsubmit]')?.addEventListener('click', unsubmitWork);
+    root.querySelector('#submit-work-form')?.addEventListener('submit', submitWork);
+    root.querySelectorAll('[data-grade-submission]').forEach((form) => form.addEventListener('submit', gradeSubmission));
+    root.querySelector('[data-logout]').addEventListener('click', async () => { try { await api('/logout', { method: 'POST' }); } catch (_) {} clearSession(); render(); });
     root.querySelector('[data-menu]').addEventListener('click', () => root.querySelector('#sidebar').classList.toggle('open'));
     root.querySelectorAll('[data-modal]').forEach((button) => button.addEventListener('click', () => { state.modal = button.dataset.modal; render(); }));
     root.querySelectorAll('[data-close-modal]').forEach((element) => element.addEventListener('click', (event) => { if (event.target === element || event.currentTarget === element) { state.modal = null; render(); } }));
@@ -152,7 +172,7 @@ function classroomView() {
     const classroom = state.activeClassroom;
     if (!classroom) return '<section class="empty-state card"><h3>Kelas tidak ditemukan</h3></section>';
     const isTeacher = role() === 'guru' || role() === 'admin';
-    return `<section class="classroom-hero"><div><button class="back-link" data-back-classes>← Kembali ke kelas</button><span class="pill pill-white">${escapeHtml((classroom.subject || 'KELAS').toUpperCase())}</span><h2>${escapeHtml(classroom.title)}</h2><p>Pengajar: ${escapeHtml(classroom.teacher?.name || '—')}</p></div><div class="class-code"><small>Kode kelas</small><strong>${escapeHtml(classroom.code)}</strong><button data-copy-code title="Salin kode">⧉</button></div></section><nav class="tab-nav"><button class="${state.tab === 'stream' ? 'active' : ''}" data-tab="stream">Forum & aktivitas</button><button class="${state.tab === 'assignments' ? 'active' : ''}" data-tab="assignments">Tugas <span>${state.assignments.length}</span></button>${isTeacher ? `<button class="${state.tab === 'people' ? 'active' : ''}" data-tab="people">Anggota <span>${state.students.length}</span></button>` : ''}</nav>${state.tab === 'assignments' ? assignmentsView(isTeacher) : state.tab === 'people' ? peopleView() : streamView(isTeacher)}`;
+    return `<section class="classroom-hero"><div><button class="back-link" data-back-classes>← Kembali ke kelas</button><span class="pill pill-white">${escapeHtml((classroom.subject || 'KELAS').toUpperCase())}</span><h2>${escapeHtml(classroom.title)}</h2><p>Pengajar: ${escapeHtml(classroom.teacher?.name || '—')}</p></div><div class="class-code"><small>Kode kelas</small><strong>${escapeHtml(classroom.code)}</strong><button data-copy-code title="Salin kode">⧉</button></div></section><nav class="tab-nav"><button class="${state.tab === 'stream' ? 'active' : ''}" data-tab="stream">Forum & aktivitas</button><button class="${state.tab === 'assignments' ? 'active' : ''}" data-tab="assignments">Tugas <span>${state.assignments.length}</span></button>${isTeacher ? `<button class="${state.tab === 'people' ? 'active' : ''}" data-tab="people">Anggota <span>${state.students.length}</span></button>` : ''}</nav>${state.tab === 'assignments' ? assignmentsView(isTeacher) : state.tab === 'people' ? peopleView() : streamView(isTeacher)}${state.modal ? modalView() : ''}`;
 }
 
 function streamView(isTeacher) {
@@ -209,3 +229,24 @@ async function createComment(event) {
 }
 async function deletePost(id) { if (!window.confirm('Hapus postingan ini?')) return; try { await api(`/posts/${id}`, { method: 'DELETE' }); await openClassroom(state.activeClassroom.id); notify('Postingan dihapus.'); } catch (exception) { notify(exception.message, 'error'); } }
 async function removeStudent(studentId) { if (!window.confirm('Keluarkan siswa dari kelas ini?')) return; try { await api(`/classrooms/${state.activeClassroom.id}/students/${studentId}`, { method: 'DELETE' }); state.students = state.students.filter((student) => student.id !== studentId); render(); notify('Siswa dikeluarkan dari kelas.'); } catch (exception) { notify(exception.message, 'error'); } }
+
+async function openSubmissionModal(assignmentId) {
+    state.modal = 'submit-assignment'; state.modalAssignment = state.assignments.find((assignment) => assignment.id === assignmentId); state.modalData = null; render();
+    try { state.modalData = (await api(`/assignments/${assignmentId}/my-submission`)).data; render(); } catch (exception) { notify(exception.message, 'error'); }
+}
+async function submitWork(event) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    try { await api(`/assignments/${state.modalAssignment.id}/submit`, { method: 'POST', body: form }); state.modal = null; await openClassroom(state.activeClassroom.id); state.tab = 'assignments'; render(); notify('Tugas berhasil dikirim.'); } catch (exception) { notify(exception.message, 'error'); }
+}
+async function unsubmitWork() {
+    if (!window.confirm('Tarik pengumpulan tugas ini?')) return;
+    try { await api(`/assignments/${state.modalAssignment.id}/unsubmit`, { method: 'POST' }); state.modal = null; await openClassroom(state.activeClassroom.id); state.tab = 'assignments'; render(); notify('Pengumpulan berhasil ditarik.'); } catch (exception) { notify(exception.message, 'error'); }
+}
+async function openSubmissionsModal(assignmentId) {
+    state.modal = 'submissions'; state.modalAssignment = state.assignments.find((assignment) => assignment.id === assignmentId); state.modalData = null; render();
+    try { state.modalData = (await api(`/assignments/${assignmentId}/submissions`)).data || []; render(); } catch (exception) { notify(exception.message, 'error'); }
+}
+async function gradeSubmission(event) {
+    event.preventDefault(); const form = new FormData(event.currentTarget); const submissionId = event.currentTarget.dataset.gradeSubmission;
+    try { await api(`/submissions/${submissionId}/grade`, { method: 'POST', body: { grade: form.get('grade'), feedback: form.get('feedback') } }); state.modalData = (await api(`/assignments/${state.modalAssignment.id}/submissions`)).data || []; render(); notify('Nilai berhasil disimpan.'); } catch (exception) { notify(exception.message, 'error'); }
+}

@@ -13,6 +13,7 @@ const state = {
     page: 'dashboard',
     classrooms: [],
     admin: null,
+    users: [],
     activeClassroom: null,
     posts: [],
     assignments: [],
@@ -81,7 +82,7 @@ function pageView() {
     if (state.loading) return '<div class="loading-state"><span class="loader"></span><p>Menyiapkan ruang belajar...</p></div>';
     if (state.page === 'classes') return classesView();
     if (state.page === 'classroom') return classroomView();
-    if (state.page === 'users') return usersPlaceholder();
+    if (state.page === 'users') return usersView();
     return dashboardView();
 }
 
@@ -102,9 +103,17 @@ function classGrid(classrooms, full = false) {
     return `<section class="class-grid">${classrooms.map((item, index) => `<article class="class-card card" data-classroom="${item.id}"><div class="class-cover cover-${index % 4}"><span>${escapeHtml((item.subject || 'KELAS').toUpperCase())}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.teacher?.name || state.user.name)}</small><div class="cover-symbol">${['✦', '◌', '△', '○'][index % 4]}</div></div><div class="class-card-body"><div class="class-meta"><span>▦ ${item.assignments_count || 0} tugas</span><span>♙ ${item.students_count || 0} siswa</span></div><p>${item.posts_count || 0} aktivitas forum</p><button class="button button-outline button-block">Buka kelas <span>→</span></button></div></article>`).join('')}</section>`;
 }
 
-function usersPlaceholder() { return `<section class="empty-state card"><div class="empty-icon">♙</div><h3>Manajemen pengguna segera hadir</h3><p>Area admin sudah disiapkan pada navigasi dan API. Modul tabel pengguna akan ditambahkan di commit berikutnya.</p></section>`; }
+function usersView() {
+    return `<div class="page-toolbar"><div><p class="eyebrow">Kontrol akses</p><h2>Pengguna Pintaria</h2><p class="muted">Kelola akun dan peran pengguna dengan aman.</p></div><button class="button button-primary" data-user-modal="create">+ Tambah pengguna</button></div><section class="user-table card"><div class="user-table-head"><span>Pengguna</span><span>Peran</span><span>Bergabung</span><span>Aksi</span></div>${state.users.length ? state.users.map((user) => `<div class="user-row"><div class="user-identity"><div class="avatar avatar-soft">${escapeHtml(initials(user.name))}</div><div><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.email)}</small></div></div><div><span class="role-badge role-${user.roles?.[0]?.name || 'siswa'}">${escapeHtml(user.roles?.[0]?.name || 'siswa')}</span></div><small class="user-date">${formatDate(user.created_at)}</small><div class="user-actions"><button class="button button-soft" data-user-modal="edit" data-user-id="${user.id}">Edit</button>${user.id !== state.user.id ? `<button class="icon-button user-delete" data-delete-user="${user.id}">×</button>` : ''}</div></div>`).join('') : '<div class="empty-table">Belum ada pengguna.</div>'}</section>${state.modal === 'user-form' ? modalView() : ''}`;
+}
+
+function usersPlaceholder() { return usersView(); }
 function modalView() {
-    if (state.modal === 'join') return `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Gabung kelas</p><h2>Masukkan kode kelas</h2><p class="muted">Minta kode 7 karakter dari guru kamu.</p><form id="join-form" class="stack-form"><label>Kode kelas<input name="code" minlength="7" maxlength="7" placeholder="contoh: pintari" required autocomplete="off"></label><button class="button button-primary button-block">Gabung sekarang</button></form></div></div>`;
+    if (state.modal === 'user-form') {
+        const user = state.modalUser || {}; const editing = Boolean(user.id);
+        return `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">${editing ? 'Edit pengguna' : 'Pengguna baru'}</p><h2>${editing ? 'Perbarui profil' : 'Tambah pengguna'}</h2><p class="muted">Tetapkan akses sesuai tanggung jawab pengguna.</p><form id="user-form" class="stack-form"><input type="hidden" name="id" value="${user.id || ''}"><label>Nama lengkap<input name="name" value="${escapeHtml(user.name || '')}" required maxlength="255"></label><label>Email<input name="email" type="email" value="${escapeHtml(user.email || '')}" required></label><label>Peran<select name="role" required><option value="admin" ${user.roles?.[0]?.name === 'admin' ? 'selected' : ''}>Admin</option><option value="guru" ${user.roles?.[0]?.name === 'guru' ? 'selected' : ''}>Guru</option><option value="siswa" ${!user.id || user.roles?.[0]?.name === 'siswa' ? 'selected' : ''}>Siswa</option></select></label><label>Password${editing ? '<small class="muted">Kosongkan jika tidak diubah.</small>' : ''}<input name="password" type="password" ${editing ? '' : 'required'} minlength="8" placeholder="Minimal 8 karakter"></label><button class="button button-primary button-block">${editing ? 'Simpan perubahan' : 'Buat pengguna'}</button></form></div></div>`;
+    }
+ return `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Gabung kelas</p><h2>Masukkan kode kelas</h2><p class="muted">Minta kode 7 karakter dari guru kamu.</p><form id="join-form" class="stack-form"><label>Kode kelas<input name="code" minlength="7" maxlength="7" placeholder="contoh: pintari" required autocomplete="off"></label><button class="button button-primary button-block">Gabung sekarang</button></form></div></div>`;
     if (state.modal === 'create-class') return `<div class="modal-backdrop" data-close-modal><div class="modal-card" data-stop-click><button class="modal-close" data-close-modal>×</button><p class="eyebrow">Kelas baru</p><h2>Buat ruang kelas</h2><p class="muted">Buat ruang yang nyaman untuk materi dan diskusi.</p><form id="create-class-form" class="stack-form"><label>Nama kelas<input name="title" placeholder="Contoh: Pemrograman Web" required maxlength="255"></label><label>Mata pelajaran<input name="subject" placeholder="Contoh: Teknologi Informasi" maxlength="255"></label><button class="button button-primary button-block">Buat kelas</button></form></div></div>`;
     if (state.modal === 'submit-assignment') {
         const assignment = state.modalAssignment; const submission = state.modalData;
@@ -137,6 +146,9 @@ function bindShellEvents() {
     root.querySelector('[data-logout]').addEventListener('click', async () => { try { await api('/logout', { method: 'POST' }); } catch (_) {} clearSession(); render(); });
     root.querySelector('[data-menu]').addEventListener('click', () => root.querySelector('#sidebar').classList.toggle('open'));
     root.querySelectorAll('[data-modal]').forEach((button) => button.addEventListener('click', () => { state.modal = button.dataset.modal; render(); }));
+    root.querySelectorAll('[data-user-modal]').forEach((button) => button.addEventListener('click', () => openUserModal(button.dataset.userModal, Number(button.dataset.userId))));
+    root.querySelectorAll('[data-delete-user]').forEach((button) => button.addEventListener('click', () => deleteUser(Number(button.dataset.deleteUser))));
+    root.querySelector('#user-form')?.addEventListener('submit', saveUser);
     root.querySelectorAll('[data-close-modal]').forEach((element) => element.addEventListener('click', (event) => { if (event.target === element || event.currentTarget === element) { state.modal = null; render(); } }));
     root.querySelector('[data-stop-click]')?.addEventListener('click', (event) => event.stopPropagation());
     root.querySelector('#join-form')?.addEventListener('submit', joinClass);
@@ -151,6 +163,10 @@ async function loadPage() {
             const endpoint = role() === 'siswa' ? '/my-classrooms' : '/classrooms';
             state.classrooms = (await api(endpoint)).data || [];
             if (role() === 'admin') state.admin = (await api('/admin/dashboard')).data;
+        }
+        if (state.page === 'users' && role() === 'admin') {
+            const response = await api('/admin/users?per_page=50');
+            state.users = response.data?.data || [];
         }
     } catch (exception) { notify(exception.message, 'error'); }
     state.loading = false; render();
@@ -249,4 +265,17 @@ async function openSubmissionsModal(assignmentId) {
 async function gradeSubmission(event) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const submissionId = event.currentTarget.dataset.gradeSubmission;
     try { await api(`/submissions/${submissionId}/grade`, { method: 'POST', body: { grade: form.get('grade'), feedback: form.get('feedback') } }); state.modalData = (await api(`/assignments/${state.modalAssignment.id}/submissions`)).data || []; render(); notify('Nilai berhasil disimpan.'); } catch (exception) { notify(exception.message, 'error'); }
+}
+
+function openUserModal(mode, id = null) {
+    state.modal = 'user-form'; state.modalUser = mode === 'edit' ? state.users.find((user) => user.id === id) : null; render();
+}
+async function saveUser(event) {
+    event.preventDefault(); const form = new FormData(event.currentTarget); const id = form.get('id');
+    const body = { name: form.get('name'), email: form.get('email'), role: form.get('role') }; if (form.get('password')) body.password = form.get('password');
+    try { await api(id ? `/admin/users/${id}` : '/admin/users', { method: id ? 'PUT' : 'POST', body }); state.modal = null; await loadPage(); notify(id ? 'Profil diperbarui.' : 'Pengguna berhasil dibuat.'); } catch (exception) { notify(exception.message, 'error'); }
+}
+async function deleteUser(id) {
+    if (!window.confirm('Hapus pengguna ini dari sistem?')) return;
+    try { await api(`/admin/users/${id}`, { method: 'DELETE' }); await loadPage(); notify('Pengguna berhasil dihapus.'); } catch (exception) { notify(exception.message, 'error'); }
 }

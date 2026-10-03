@@ -1,6 +1,6 @@
-# SobatSinau - Backend API (Google Classroom Clone)
+# Pintaria - Backend API (Google Classroom Clone)
 
-SobatSinau adalah backend RESTful API untuk platform Learning Management System (LMS) terinspirasi dari Google Classroom. Dibangun menggunakan **Laravel**, mengusung arsitektur berbasis standar industri dengan **Role-Based Access Control (RBAC)** berjenjang, autentikasi **Laravel Sanctum**, serta manajemen berkas terintegrasi.
+Pintaria adalah backend RESTful API untuk platform Learning Management System (LMS) terinspirasi dari Google Classroom. Dibangun menggunakan **Laravel**, mengusung arsitektur berbasis standar industri dengan **Role-Based Access Control (RBAC)** berjenjang, autentikasi **Laravel Sanctum**, serta manajemen berkas terintegrasi.
 
 ---
 

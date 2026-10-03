@@ -205,3 +205,66 @@ php artisan route:list --path=api
 # Merapikan gaya penulisan kode PHP (Pint)
 vendor/bin/pint --format agent
 ```
+
+---
+
+## ⚠️ Status Pekerjaan & Catatan Titik Terputus (Handoff Log)
+
+### 📌 Ringkasan Status
+- **Commit Terakhir di GitHub (`main`):** `6966700 chore: ubah nama aplikasi menjadi Pintaria`
+- **Waktu Terputus:** 03 Oktober 2026, ~19:37 WIB.
+- **Penyebab:** Model Claude Opus 5.5 kehabisan kredit/token kuota saat sedang mengeksekusi instruksi perombakan arsitektur (migrasi dari Blade ke Headless API + Modern SPA).
+- **Kondisi Working Tree Saat Ini:** Setengah jalan (*Uncommitted* & *Partially Broken* jika belum diperbaiki).
+
+---
+
+### ✅ 1. Pekerjaan yang Sudah Selesai Dibuat Opus (Uncommitted)
+1. **Domain Enums (`app/Enums/`):**
+   - [`UserRole.php`](file:///c:/Users/LENOVO%20X1%20CARBON/Documents/project_web/LMS_php/app/Enums/UserRole.php): Role `Admin`, `Teacher` (`guru`), `Student` (`siswa`) dengan helper label dan color.
+   - [`PostType.php`](file:///c:/Users/LENOVO%20X1%20CARBON/Documents/project_web/LMS_php/app/Enums/PostType.php): Tipe postingan `Announcement`, `Material`, `Discussion`.
+   - [`SubmissionStatus.php`](file:///c:/Users/LENOVO%20X1%20CARBON/Documents/project_web/LMS_php/app/Enums/SubmissionStatus.php): Status `Submitted`, `Graded`.
+2. **Database Migration Baru:**
+   - [`database/migrations/2026_10_03_120000_add_attachment_names_and_feedback.php`](file:///c:/Users/LENOVO%20X1%20CARBON/Documents/project_web/LMS_php/database/migrations/2026_10_03_120000_add_attachment_names_and_feedback.php): Kolom `attachment_name`, `file_name`, dan `feedback`.
+3. **Penyempurnaan Model Eloquent:**
+   - Casting enum, auto-delete file lampiran saat record dihapus (*deleting hook*), dan relasi di `User`, `Classroom`, `Post`, `Comment`, `Assignment`, `Submission`.
+4. **Authorization Policies (`app/Policies/`):**
+   - 5 file policy: `ClassroomPolicy`, `PostPolicy`, `CommentPolicy`, `AssignmentPolicy`, `SubmissionPolicy`.
+
+---
+
+### 🚨 2. Masalah yang Terjadi Akibat Terputus di Tengah Jalan (Broken State)
+Sebelum sempat menulis controller baru dan frontend SPA, Opus telah menjalankan command `Remove-Item` yang menghapus file-file berikut:
+1. **Controller API yang Terhapus:**
+   - `app/Http/Controllers/ClassroomController.php`
+   - `app/Http/Controllers/Api/ClassroomMemberController.php`
+   - `app/Http/Controllers/Api/StudentClassroomController.php`
+   - `app/Http/Controllers/Api/StudentSubmissionController.php`
+   *(Catatan: File-file ini masih di-`import` dan dipanggil di [`routes/api.php`](file:///c:/Users/LENOVO%20X1%20CARBON/Documents/project_web/LMS_php/routes/api.php), sehingga API error jika controller ini tidak dipulihkan/direfaktor).*
+2. **`routes/web.php` Error:**
+   - Masih memanggil `require __DIR__.'/auth.php';` dan `ProfileController` milik Breeze yang sudah dihapus.
+3. **Frontend UI SPA:**
+   - Belum sempat dibuat sama sekali.
+
+---
+
+### 📋 3. Checklist Langkah untuk Melanjutkan (Next Action Plan)
+- [ ] **Langkah 1:** Pulihkan 4 controller API yang terhapus dari git history (`git restore app/Http/Controllers/ClassroomController.php app/Http/Controllers/Api/...`).
+- [ ] **Langkah 2:** Bersihkan [`routes/web.php`](file:///c:/Users/LENOVO%20X1%20CARBON/Documents/project_web/LMS_php/routes/web.php) dari dependensi Breeze auth yang sudah dihapus agar tidak fatal error.
+- [ ] **Langkah 3:** Jalankan migrasi database `php artisan migrate` untuk menerapkan kolom lampiran & feedback baru.
+- [ ] **Langkah 4:** Validasi `php artisan route:list` untuk memastikan semua 36 endpoint API berfungsi normal tanpa error.
+- [ ] **Langkah 5:** Bangun antarmuka Frontend Modern SPA (Minimalis, interaktif, responsif, UX optimal) yang berkomunikasi dengan REST API Pintaria.
+- [ ] **Langkah 6:** Buat commit dan push ke GitHub setelah seluruh aplikasi berfungsi normal.
+
+
+---
+
+## ✅ Status Implementasi Terbaru
+
+Bagian ini memperbarui handoff di atas setelah implementasi Pintaria dilanjutkan:
+
+- Backend REST API sudah dipulihkan dan dioptimalkan: controller kelas/member/siswa/submission tersedia, migration LMS lengkap, seeder role dan akun demo tersedia, serta akses detail kelas tervalidasi untuk member.
+- Frontend sudah beralih ke SPA ringan berbasis Blade shell + Vite/Alpine + CSS custom. Alur yang tersedia: login Sanctum, dashboard role-aware, daftar/buat/gabung kelas, detail kelas, forum, komentar, lampiran, tugas, pengumpulan siswa, unsubmit, grading/feedback guru, dan CRUD pengguna admin.
+- Akun demo tetap: `admin@lms.test`, `guru@lms.test`, dan `siswa@lms.test`, semuanya dengan password `password123` setelah `php artisan migrate:fresh --seed`.
+- Validasi terakhir: migration fresh + seed berhasil, 36 route API terdaftar, Pint lulus, 4 API integration tests lulus dengan 16 assertions, dan `npm run build` berhasil.
+- Scaffold Breeze Blade/auth lama dihapus karena tidak lagi digunakan oleh arsitektur headless API + SPA. Entry point web sekarang adalah `resources/views/app.blade.php`, sedangkan data aplikasi dikonsumsi melalui `routes/api.php`.
+- Riwayat perubahan dibagi menjadi commit kecil agar mudah direview dan di-revert; jangan squash atau reset commit tersebut tanpa alasan yang jelas.

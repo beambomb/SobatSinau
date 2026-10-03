@@ -13,6 +13,13 @@ const state = {
     page: 'dashboard',
     classrooms: [],
     admin: null,
+    activeClassroom: null,
+    posts: [],
+    assignments: [],
+    students: [],
+    tab: 'stream',
+    comments: {},
+    modal: null,
     loading: false,
     toast: null,
 };
@@ -48,7 +55,7 @@ function notify(message, type = 'success') {
 
 function render() {
     if (!state.user) return renderLogin();
-    const titles = { dashboard: 'Ringkasan aktivitas', classes: 'Kelas saya', users: 'Pengguna' };
+    const titles = { dashboard: 'Ringkasan aktivitas', classes: 'Kelas saya', users: 'Pengguna', classroom: state.activeClassroom?.title || 'Ruang kelas' };
     root.innerHTML = `<div class="app-shell"><aside class="sidebar" id="sidebar"><div class="brand"><span class="brand-mark">P</span><span>Pintaria</span></div><div class="sidebar-profile"><div class="avatar avatar-light">${escapeHtml(initials(state.user.name))}</div><div><strong>${escapeHtml(state.user.name)}</strong><small>${roleLabel()}</small></div></div><nav class="main-nav"><button class="nav-item ${state.page === 'dashboard' ? 'active' : ''}" data-nav="dashboard"><span>⌂</span> Beranda</button><button class="nav-item ${state.page === 'classes' ? 'active' : ''}" data-nav="classes"><span>▦</span> Kelas saya</button>${role() === 'admin' ? `<button class="nav-item ${state.page === 'users' ? 'active' : ''}" data-nav="users"><span>♙</span> Pengguna</button>` : ''}</nav><div class="sidebar-help"><span>✦</span><strong>Belajar lebih terarah</strong><small>Kelola kelas dan tugas dari satu tempat.</small></div><button class="nav-item logout-item" data-logout><span>↪</span> Keluar</button></aside><main class="main-content"><header class="topbar"><button class="icon-button mobile-menu" data-menu aria-label="Buka menu">☰</button><div><p class="eyebrow">${roleLabel()} workspace</p><h1 id="page-title">${titles[state.page] || 'Ruang kelas'}</h1></div><div class="topbar-actions"><button class="icon-button" title="Notifikasi">♢</button><div class="avatar avatar-brand">${escapeHtml(initials(state.user.name))}</div></div></header><div class="page-content" id="page-content">${pageView()}</div></main></div>${state.toast ? `<div class="toast toast-${state.toast.type}">${state.toast.type === 'success' ? '✓' : '!'} ${escapeHtml(state.toast.message)}</div>` : ''}`;
     bindShellEvents();
 }
@@ -71,6 +78,7 @@ async function login(event) {
 function pageView() {
     if (state.loading) return '<div class="loading-state"><span class="loader"></span><p>Menyiapkan ruang belajar...</p></div>';
     if (state.page === 'classes') return classesView();
+    if (state.page === 'classroom') return classroomView();
     if (state.page === 'users') return usersPlaceholder();
     return dashboardView();
 }
@@ -97,8 +105,16 @@ function modalView() { return state.modal === 'join' ? `<div class="modal-backdr
 
 function bindShellEvents() {
     root.querySelectorAll('[data-nav]').forEach((button) => button.addEventListener('click', () => openPage(button.dataset.nav)));
-    root.querySelectorAll('[data-classroom]').forEach((card) => card.addEventListener('click', () => notify('Detail kelas akan tersedia di commit berikutnya.')));
-    root.querySelector('[data-logout]').addEventListener('click', async () => { try { await api('/logout', { method: 'POST' }); } catch (_) {} clearSession(); render(); });
+    root.querySelectorAll('[data-classroom]').forEach((card) => card.addEventListener('click', () => openClassroom(Number(card.dataset.classroom))));
+    root.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => { state.tab = button.dataset.tab; render(); }));
+    root.querySelector('[data-back-classes]')?.addEventListener('click', () => openPage('classes'));
+    root.querySelector('[data-copy-code]')?.addEventListener('click', async () => { await navigator.clipboard?.writeText(state.activeClassroom.code); notify('Kode kelas disalin.'); });
+    root.querySelectorAll('[data-comments]').forEach((button) => button.addEventListener('click', () => loadComments(Number(button.dataset.comments))));
+    root.querySelectorAll('[data-delete-post]').forEach((button) => button.addEventListener('click', () => deletePost(Number(button.dataset.deletePost))));
+    root.querySelectorAll('[data-remove-student]').forEach((button) => button.addEventListener('click', () => removeStudent(Number(button.dataset.removeStudent))));
+    root.querySelector('#create-post-form')?.addEventListener('submit', createPost);
+    root.querySelector('#create-assignment-form')?.addEventListener('submit', createAssignment);
+    root.querySelectorAll('[data-comment-form]').forEach((form) => form.addEventListener('submit', createComment));
     root.querySelector('[data-menu]').addEventListener('click', () => root.querySelector('#sidebar').classList.toggle('open'));
     root.querySelectorAll('[data-modal]').forEach((button) => button.addEventListener('click', () => { state.modal = button.dataset.modal; render(); }));
     root.querySelectorAll('[data-close-modal]').forEach((element) => element.addEventListener('click', (event) => { if (event.target === element || event.currentTarget === element) { state.modal = null; render(); } }));
@@ -131,3 +147,65 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+function classroomView() {
+    const classroom = state.activeClassroom;
+    if (!classroom) return '<section class="empty-state card"><h3>Kelas tidak ditemukan</h3></section>';
+    const isTeacher = role() === 'guru' || role() === 'admin';
+    return `<section class="classroom-hero"><div><button class="back-link" data-back-classes>← Kembali ke kelas</button><span class="pill pill-white">${escapeHtml((classroom.subject || 'KELAS').toUpperCase())}</span><h2>${escapeHtml(classroom.title)}</h2><p>Pengajar: ${escapeHtml(classroom.teacher?.name || '—')}</p></div><div class="class-code"><small>Kode kelas</small><strong>${escapeHtml(classroom.code)}</strong><button data-copy-code title="Salin kode">⧉</button></div></section><nav class="tab-nav"><button class="${state.tab === 'stream' ? 'active' : ''}" data-tab="stream">Forum & aktivitas</button><button class="${state.tab === 'assignments' ? 'active' : ''}" data-tab="assignments">Tugas <span>${state.assignments.length}</span></button>${isTeacher ? `<button class="${state.tab === 'people' ? 'active' : ''}" data-tab="people">Anggota <span>${state.students.length}</span></button>` : ''}</nav>${state.tab === 'assignments' ? assignmentsView(isTeacher) : state.tab === 'people' ? peopleView() : streamView(isTeacher)}`;
+}
+
+function streamView(isTeacher) {
+    const composer = `<section class="composer card"><div class="avatar avatar-brand">${escapeHtml(initials(state.user.name))}</div><form id="create-post-form" class="composer-form"><textarea name="content" rows="2" placeholder="Bagikan pengumuman, materi, atau mulai diskusi..." required></textarea><div class="form-row"><select name="type"><option value="discussion">Diskusi</option><option value="announcement">Pengumuman</option><option value="material">Materi</option></select><label class="file-button">＋ Lampiran<input name="attachment" type="file" hidden></label><button class="button button-primary" type="submit">Publikasikan</button></div></form></section>`;
+    const posts = state.posts.length ? state.posts.map((post) => `<article class="post-card card"><div class="post-header"><div class="avatar avatar-soft">${escapeHtml(initials(post.user?.name))}</div><div><strong>${escapeHtml(post.user?.name || 'Pengguna')}</strong><small>${escapeHtml(post.type || 'discussion')} · ${formatDate(post.created_at)}</small></div>${(post.user_id === state.user.id || isTeacher || role() === 'admin') ? `<button class="icon-button post-delete" data-delete-post="${post.id}" title="Hapus">×</button>` : ''}</div><p class="post-content">${escapeHtml(post.content)}</p>${post.attachment_path ? `<a class="attachment" href="/storage/${post.attachment_path}" target="_blank">↗ ${escapeHtml(post.attachment_name || 'Lihat lampiran')}</a>` : ''}<div class="post-footer"><button class="comment-toggle" data-comments="${post.id}">◌ ${post.comments_count || 0} komentar</button></div>${state.comments[post.id] ? commentView(post) : ''}</article>`).join('') : '<div class="empty-state card"><div class="empty-icon">◌</div><h3>Belum ada aktivitas</h3><p>Jadilah yang pertama membagikan sesuatu di kelas ini.</p></div>';
+    return `${composer}<div class="stream-list">${posts}</div>`;
+}
+
+function commentView(post) {
+    const comments = state.comments[post.id] || [];
+    return `<div class="comment-panel">${comments.map((comment) => `<div class="comment"><div class="avatar avatar-tiny">${escapeHtml(initials(comment.user?.name))}</div><div><strong>${escapeHtml(comment.user?.name || 'Pengguna')}</strong><p>${escapeHtml(comment.content)}</p></div></div>`).join('') || '<p class="muted">Belum ada komentar.</p>'}<form class="comment-form" data-comment-form="${post.id}"><input name="content" placeholder="Tulis komentar..." required><button class="button button-soft">Kirim</button></form></div>`;
+}
+
+function assignmentsView(isTeacher) {
+    const composer = isTeacher ? `<section class="assignment-composer card"><div><p class="eyebrow">Buat tugas baru</p><h3>Bagikan tugas untuk kelas</h3></div><form id="create-assignment-form" class="stack-form"><label>Judul tugas<input name="title" placeholder="Contoh: Latihan halaman profil" required></label><label>Instruksi<textarea name="instructions" rows="3" placeholder="Jelaskan tugas untuk siswa..."></textarea></label><div class="form-grid"><label>Batas pengumpulan<input name="due_date" type="datetime-local"></label><label>Nilai maksimal<input name="max_points" type="number" min="1" max="1000" value="100"></label></div><div class="form-row"><label class="file-button">＋ Lampiran soal<input name="attachment" type="file" hidden></label><button class="button button-primary">Publikasikan tugas</button></div></form></section>` : '';
+    const cards = state.assignments.length ? state.assignments.map((assignment) => `<article class="assignment-card card"><div class="assignment-icon">✓</div><div class="assignment-main"><span class="eyebrow">Tugas · ${formatDate(assignment.created_at)}</span><h3>${escapeHtml(assignment.title)}</h3><p>${escapeHtml(assignment.instructions || 'Tidak ada instruksi tambahan.')}</p><div class="assignment-meta"><span>Nilai maksimal ${assignment.max_points}</span><span>Deadline ${formatDate(assignment.due_date)}</span></div></div>${isTeacher ? `<button class="button button-outline" data-submissions="${assignment.id}">Lihat jawaban</button>` : `<button class="button button-outline" data-submit-assignment="${assignment.id}">Kumpulkan</button>`}</article>`).join('') : '<div class="empty-state card"><div class="empty-icon">✓</div><h3>Belum ada tugas</h3><p>Tugas dari guru akan muncul di sini.</p></div>';
+    return `${composer}<div class="assignment-list">${cards}</div>`;
+}
+
+function peopleView() {
+    return `<section class="people-card card"><div class="section-heading"><div><p class="eyebrow">Komunitas kelas</p><h2>${state.students.length} anggota siswa</h2></div></div><div class="people-list">${state.students.map((student) => `<div class="person-row"><div class="avatar avatar-soft">${escapeHtml(initials(student.name))}</div><div><strong>${escapeHtml(student.name)}</strong><small>${escapeHtml(student.email)}</small></div><button class="button button-danger" data-remove-student="${student.id}">Keluarkan</button></div>`).join('') || '<p class="muted">Belum ada siswa.</p>'}</div></section>`;
+}
+
+async function openClassroom(id) {
+    state.page = 'classroom'; state.tab = 'stream'; state.activeClassroom = state.classrooms.find((classroom) => classroom.id === id) || null; state.loading = true; render();
+    try {
+        const requests = [api(`/classrooms/${id}`), api(`/classrooms/${id}/posts`), api(`/classrooms/${id}/assignments`)];
+        if (isManager()) requests.push(api(`/classrooms/${id}/students`));
+        const [classroom, posts, assignments, students] = await Promise.all(requests);
+        state.activeClassroom = classroom.data; state.posts = posts.data || []; state.assignments = assignments.data || []; state.students = students?.data || [];
+    } catch (exception) { notify(exception.message, 'error'); state.page = 'classes'; }
+    state.loading = false; render();
+}
+
+async function createPost(event) {
+    event.preventDefault(); const form = new FormData(event.currentTarget); form.set('type', form.get('type') || 'discussion');
+    try { await api(`/classrooms/${state.activeClassroom.id}/posts`, { method: 'POST', body: form }); await openClassroom(state.activeClassroom.id); notify('Postingan berhasil dipublikasikan.'); } catch (exception) { notify(exception.message, 'error'); }
+}
+
+async function createAssignment(event) {
+    event.preventDefault(); const form = new FormData(event.currentTarget);
+    try { await api(`/classrooms/${state.activeClassroom.id}/assignments`, { method: 'POST', body: form }); await openClassroom(state.activeClassroom.id); state.tab = 'assignments'; render(); notify('Tugas berhasil dibuat.'); } catch (exception) { notify(exception.message, 'error'); }
+}
+
+async function loadComments(postId) {
+    if (!state.comments[postId]) state.comments[postId] = (await api(`/posts/${postId}/comments`)).data || [];
+    else delete state.comments[postId];
+    render();
+}
+
+async function createComment(event) {
+    event.preventDefault(); const form = new FormData(event.currentTarget); const postId = event.currentTarget.dataset.commentForm;
+    try { await api(`/posts/${postId}/comments`, { method: 'POST', body: { content: form.get('content') } }); state.comments[postId] = (await api(`/posts/${postId}/comments`)).data || []; render(); } catch (exception) { notify(exception.message, 'error'); }
+}
+async function deletePost(id) { if (!window.confirm('Hapus postingan ini?')) return; try { await api(`/posts/${id}`, { method: 'DELETE' }); await openClassroom(state.activeClassroom.id); notify('Postingan dihapus.'); } catch (exception) { notify(exception.message, 'error'); } }
+async function removeStudent(studentId) { if (!window.confirm('Keluarkan siswa dari kelas ini?')) return; try { await api(`/classrooms/${state.activeClassroom.id}/students/${studentId}`, { method: 'DELETE' }); state.students = state.students.filter((student) => student.id !== studentId); render(); notify('Siswa dikeluarkan dari kelas.'); } catch (exception) { notify(exception.message, 'error'); } }

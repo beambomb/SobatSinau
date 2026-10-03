@@ -8,13 +8,14 @@ use App\Models\Post;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class RoleAndPermissionSeeder extends Seeder
 {
     public function run(): void
     {
         foreach (['admin', 'guru', 'siswa'] as $role) {
-            \Spatie\Permission\Models\Role::findOrCreate($role, 'web');
+            Role::findOrCreate($role, 'web');
         }
 
         $admin = $this->user('admin@lms.test', 'Admin Pintaria', 'admin');

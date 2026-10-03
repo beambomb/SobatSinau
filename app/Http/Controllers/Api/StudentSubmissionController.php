@@ -70,6 +70,11 @@ class StudentSubmissionController extends Controller
     public function unsubmit(Request $request, Assignment $assignment): JsonResponse
     {
         $user = $request->user();
+
+        if (! $user->isStudent() || ! $assignment->classroom->hasStudent($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Kamu tidak terdaftar di kelas tugas ini.'], 403);
+        }
+
         $submission = $assignment->submissions()->where('student_id', $user->id)->first();
 
         if (! $user->isStudent() || ! $submission) {

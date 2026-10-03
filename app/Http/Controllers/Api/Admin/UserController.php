@@ -34,7 +34,7 @@ class UserController extends Controller
             });
         }
 
-        $users = $query->paginate($request->input('per_page', 15));
+        $users = $query->paginate(min($request->integer('per_page', 15), 50));
 
         return response()->json([
             'status' => 'success',

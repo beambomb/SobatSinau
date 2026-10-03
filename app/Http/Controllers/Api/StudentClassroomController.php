@@ -6,94 +6,63 @@ use App\Http\Controllers\Controller;
 use App\Models\Classroom;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class StudentClassroomController extends Controller
 {
-    /**
-     * Menampilkan seluruh kelas yang sedang diikuti oleh siswa yang login.
-     */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $user = Auth::user();
-
-        $enrolledClassrooms = $user->enrolledClassrooms()
-            ->with('teacher:id,name,email')
-            ->latest('classroom_user.created_at')
-            ->get();
+        if (! $request->user()->isStudent()) {
+            return response()->json(['status' => 'error', 'message' => 'Fitur ini khusus siswa.'], 403);
+        }
 
         return response()->json([
             'status' => 'success',
-            'data' => $enrolledClassrooms,
+            'data' => $request->user()->enrolledClassrooms()
+                ->with('teacher:id,name,email')
+                ->withCount(['students', 'posts', 'assignments'])
+                ->latest('classroom_user.created_at')
+                ->get(),
         ]);
     }
 
-    /**
-     * Siswa bergabung ke kelas menggunakan kode unik (misal: "vnvi6s").
-     */
     public function join(Request $request): JsonResponse
     {
-        $request->validate([
-            'code' => ['required', 'string'],
-        ]);
+        $user = $request->user();
+        $validated = $request->validate(['code' => ['required', 'string', 'size:7']]);
 
-        $code = strtolower(trim($request->code));
-        $classroom = Classroom::where('code', $code)->first();
+        if (! $user->isStudent()) {
+            return response()->json(['status' => 'error', 'message' => 'Hanya siswa yang dapat bergabung ke kelas.'], 403);
+        }
+
+        $classroom = Classroom::where('code', strtolower($validated['code']))->first();
 
         if (! $classroom) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kode kelas tidak valid atau kelas tidak ditemukan.',
-            ], 404);
+            return response()->json(['status' => 'error', 'message' => 'Kode kelas tidak ditemukan.'], 404);
         }
 
-        $user = Auth::user();
-
-        // Mencegah guru pemilik kelas bergabung ke kelasnya sendiri sebagai murid
         if ($classroom->teacher_id === $user->id) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kamu adalah pengajar di kelas ini, tidak bisa bergabung sebagai siswa.',
-            ], 400);
+            return response()->json(['status' => 'error', 'message' => 'Pemilik kelas tidak dapat bergabung sebagai siswa.'], 422);
         }
 
-        // Cek apakah siswa sudah pernah bergabung sebelumnya
-        if ($user->enrolledClassrooms()->where('classroom_id', $classroom->id)->exists()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kamu sudah terdaftar di kelas ini.',
-            ], 400);
+        if ($classroom->hasStudent($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Kamu sudah terdaftar di kelas ini.'], 422);
         }
 
-        // Daftarkan siswa ke kelas (simpan ke pivot classroom_user)
-        $user->enrolledClassrooms()->attach($classroom->id);
+        $classroom->students()->attach($user->id);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => "Berhasil bergabung ke kelas {$classroom->title}!",
-            'data' => $classroom->load('teacher:id,name,email'),
-        ], 200);
+        return response()->json(['status' => 'success', 'message' => 'Berhasil bergabung ke kelas.', 'data' => $classroom->load('teacher:id,name,email')], 201);
     }
 
-    /**
-     * Siswa keluar dari kelas (leave class).
-     */
-    public function leave(Classroom $classroom): JsonResponse
+    public function leave(Request $request, Classroom $classroom): JsonResponse
     {
-        $user = Auth::user();
+        $user = $request->user();
 
-        if (! $user->enrolledClassrooms()->where('classroom_id', $classroom->id)->exists()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kamu bukan anggota kelas ini.',
-            ], 400);
+        if (! $user->isStudent() || ! $classroom->hasStudent($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Kamu tidak terdaftar di kelas ini.'], 422);
         }
 
-        $user->enrolledClassrooms()->detach($classroom->id);
+        $classroom->students()->detach($user->id);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => "Kamu telah keluar dari kelas {$classroom->title}.",
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Kamu berhasil keluar dari kelas.']);
     }
 }

@@ -13,9 +13,6 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    /**
-     * Menampilkan statistik dan ringkasan platform LMS untuk Admin.
-     */
     public function index(): JsonResponse
     {
         return response()->json([
@@ -37,40 +34,21 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Pengawasan global: Melihat seluruh kelas di sistem beserta pengajar dan jumlah murid.
-     */
     public function classrooms(Request $request): JsonResponse
     {
-        $query = Classroom::with('teacher:id,name,email')
-            ->withCount(['students', 'posts', 'assignments'])
-            ->latest();
-
+        $query = Classroom::with('teacher:id,name,email')->withCount(['students', 'posts', 'assignments'])->latest();
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where('title', 'like', "%{$search}%")
-                ->orWhere('code', 'like', "%{$search}%");
+            $search = $request->string('search')->toString();
+            $query->where(fn ($builder) => $builder->where('title', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%"));
         }
 
-        $classrooms = $query->paginate($request->input('per_page', 15));
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $classrooms,
-        ]);
+        return response()->json(['status' => 'success', 'data' => $query->paginate(min($request->integer('per_page', 15), 50))]);
     }
 
-    /**
-     * Super Admin Override: Menghapus kelas manapun di sistem.
-     */
     public function destroyClassroom(Classroom $classroom): JsonResponse
     {
-        $title = $classroom->title;
         $classroom->delete();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => "Kelas {$title} berhasil dihapus oleh Admin.",
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Kelas berhasil dihapus oleh admin.']);
     }
 }

@@ -4,94 +4,84 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreClassroomRequest;
 use App\Models\Classroom;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 
 class ClassroomController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        $classrooms = Auth::user()->teachingClassrooms()->latest()->get();
+        $user = $request->user();
+        $query = $user->isAdmin() ? Classroom::query() : $user->teachingClassrooms();
 
-        return response()->json([
-            'status' => 'success',
-            'data' => $classrooms,
-        ]);
+        $classrooms = $query
+            ->with('teacher:id,name,email')
+            ->withCount(['students', 'posts', 'assignments'])
+            ->latest()
+            ->get();
+
+        return response()->json(['status' => 'success', 'data' => $classrooms]);
     }
 
-    public function store(StoreClassroomRequest $request)
+    public function store(StoreClassroomRequest $request): JsonResponse
     {
-        $code = Str::lower(Str::random(6));
+        $user = $request->user();
 
-        $classroom = Auth::user()->teachingClassrooms()->create([
-            'title' => $request->title,
-            'subject' => $request->subject,
-            'code' => $code,
+        if (! $user->isTeacher() && ! $user->isAdmin()) {
+            return response()->json(['status' => 'error', 'message' => 'Hanya guru atau admin yang dapat membuat kelas.'], 403);
+        }
+
+        $classroom = Classroom::create([
+            'teacher_id' => $user->id,
+            'title' => $request->string('title')->toString(),
+            'subject' => $request->input('subject'),
+            'code' => Classroom::generateUniqueCode(),
         ]);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Kelas berhasil dibuat!',
-            'data' => $classroom,
+            'message' => 'Kelas berhasil dibuat.',
+            'data' => $classroom->load('teacher:id,name,email')->loadCount(['students', 'posts', 'assignments']),
         ], 201);
     }
 
-    public function show(Classroom $classroom)
+    public function show(Request $request, Classroom $classroom): JsonResponse
     {
-        if (! Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kamu bukan pengajar di kelas ini.',
-            ], 403);
+        if (! $classroom->isAccessibleBy($request->user())) {
+            return response()->json(['status' => 'error', 'message' => 'Kamu bukan anggota kelas ini.'], 403);
         }
 
         return response()->json([
             'status' => 'success',
-            'data' => $classroom->load('teacher:id,name,email'),
+            'data' => $classroom
+                ->load('teacher:id,name,email')
+                ->loadCount(['students', 'posts', 'assignments']),
         ]);
     }
 
-    public function update(Request $request, Classroom $classroom)
+    public function update(StoreClassroomRequest $request, Classroom $classroom): JsonResponse
     {
-        if (! Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kamu tidak berhak mengedit kelas ini.',
-            ], 403);
+        $user = $request->user();
+
+        if (! $user->isAdmin() && ! $classroom->isTaughtBy($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Kamu tidak berhak mengubah kelas ini.'], 403);
         }
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'subject' => 'nullable|string|max:255',
-        ]);
+        $classroom->update($request->only(['title', 'subject']));
 
-        $classroom->update($validated);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Kelas berhasil diperbarui!',
-            'data' => $classroom,
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Kelas berhasil diperbarui.', 'data' => $classroom->fresh()->load('teacher:id,name,email')]);
     }
 
-    public function destroy(Classroom $classroom)
+    public function destroy(Request $request, Classroom $classroom): JsonResponse
     {
-        if (! Auth::user()->hasRole('admin') && $classroom->teacher_id !== Auth::id()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kamu tidak berhak menghapus kelas ini.',
-            ], 403);
+        $user = $request->user();
+
+        if (! $user->isAdmin() && ! $classroom->isTaughtBy($user)) {
+            return response()->json(['status' => 'error', 'message' => 'Kamu tidak berhak menghapus kelas ini.'], 403);
         }
 
         $classroom->delete();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Kelas berhasil dihapus!',
-        ]);
+        return response()->json(['status' => 'success', 'message' => 'Kelas berhasil dihapus.']);
     }
 }

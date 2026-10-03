@@ -2,54 +2,51 @@
 
 namespace Database\Seeders;
 
+use App\Models\Assignment;
+use App\Models\Classroom;
+use App\Models\Post;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 class RoleAndPermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Reset cache Spatie (wajib agar permission terbaru terbaca)
-        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        foreach (['admin', 'guru', 'siswa'] as $role) {
+            \Spatie\Permission\Models\Role::findOrCreate($role, 'web');
+        }
 
-        // 2. Buat Role
-        $roleAdmin = Role::firstOrCreate(['name' => 'admin']);
-        $roleGuru = Role::firstOrCreate(['name' => 'guru']);
-        $roleSiswa = Role::firstOrCreate(['name' => 'siswa']);
+        $admin = $this->user('admin@lms.test', 'Admin Pintaria', 'admin');
+        $teacher = $this->user('guru@lms.test', 'Budi Santoso', 'guru');
+        $student = $this->user('siswa@lms.test', 'Ayu Lestari', 'siswa');
+        $studentTwo = $this->user('siswa2@lms.test', 'Raka Wijaya', 'siswa');
 
-        // 3. Buat Akun Dummy untuk Pengujian
-
-        // Akun Admin
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@lms.test'],
-            [
-                'name' => 'Admin LMS',
-                'password' => Hash::make('password123'),
-            ]
+        $classroom = Classroom::firstOrCreate(
+            ['code' => 'pintari'],
+            ['teacher_id' => $teacher->id, 'title' => 'Kelas Pemrograman Web', 'subject' => 'Teknologi Informasi'],
         );
-        $admin->assignRole($roleAdmin);
+        $classroom->students()->syncWithoutDetaching([$student->id, $studentTwo->id]);
 
-        // Akun Guru
-        $guru = User::firstOrCreate(
-            ['email' => 'guru@lms.test'],
-            [
-                'name' => 'Pak Budi Guru',
-                'password' => Hash::make('password123'),
-            ]
+        Post::firstOrCreate(
+            ['classroom_id' => $classroom->id, 'content' => 'Selamat datang di kelas Pintaria! Gunakan forum ini untuk berdiskusi.'],
+            ['user_id' => $teacher->id, 'type' => 'announcement'],
         );
-        $guru->assignRole($roleGuru);
 
-        // Akun Siswa
-        $siswa = User::firstOrCreate(
-            ['email' => 'siswa@lms.test'],
-            [
-                'name' => 'Andi Siswa',
-                'password' => Hash::make('password123'),
-            ]
+        Assignment::firstOrCreate(
+            ['classroom_id' => $classroom->id, 'title' => 'Membuat halaman profil responsif'],
+            ['teacher_id' => $teacher->id, 'instructions' => 'Buat halaman profil sederhana dengan HTML dan CSS.', 'due_date' => now()->addDays(7), 'max_points' => 100],
         );
-        $siswa->assignRole($roleSiswa);
+    }
+
+    private function user(string $email, string $name, string $role): User
+    {
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            ['name' => $name, 'password' => Hash::make('password123')],
+        );
+        $user->syncRoles([$role]);
+
+        return $user;
     }
 }
